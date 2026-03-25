@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orga Ev@lang</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #000091;
+            --bg-color: #f6f6f6;
+            --text-color: #1e1e1e;
+            --border-color: #cecece;
+            --table-header: #e3e3fd;
+        }
+
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; display: flex; background-color: var(--bg-color); color: var(--text-color); height: 100vh; overflow: hidden; }
+        
+        nav { width: 250px; background-color: white; border-right: 1px solid var(--border-color); padding: 20px; overflow-y: auto; }
+        nav button { display: block; width: 100%; padding: 15px; margin-bottom: 10px; background: none; border: 1px solid var(--primary-color); color: var(--primary-color); font-weight: bold; cursor: pointer; border-radius: 4px; text-align: left; transition: all 0.2s; }
+        nav button[aria-selected="true"], nav button:hover { background-color: var(--primary-color); color: white; }
+
+        main { flex: 1; padding: 40px; overflow-y: auto; }
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.3s; }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], textarea, select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-family: inherit; }
+        
+        .btn { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        .btn:hover { opacity: 0.9; }
+
+        /* Styles des tableaux de données */
+        .table-container { overflow-x: auto; margin-top: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); }
+        th { background-color: var(--table-header); font-weight: bold; position: sticky; top: 0; }
+        
+        /* Conteneur de boutons radio pour les types de tests */
+        .radio-group { display: flex; gap: 10px; justify-content: center; }
+        .radio-group label { font-weight: normal; font-size: 0.9em; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.open { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 600px; max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<nav aria-label="Menu principal" style="display: flex; flex-direction: column; justify-content: space-between;">
+<div style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+            <h2 style="margin: 0; color: var(--primary-color); font-size: 1.5rem; letter-spacing: 1px;">Orga Ev@lang</h2>
+            <div style="margin-top: 5px; font-size: 0.85rem; color: #666;">
+                <em>By Fred VEDRENNE</em>
+            </div>
+        </div>
+        <div>
+            <button onclick="switchView('config')" aria-selected="true" id="tab-config">1. Configuration</button>
+            <button onclick="switchView('students')" aria-selected="false" id="tab-students">2. Données Élèves</button>
+            <button onclick="switchView('timeslots')" aria-selected="false" id="tab-timeslots">3. Créneaux de passation</button>
+            <button onclick="switchView('convocations')" aria-selected="false" id="tab-convocations">4. Convocations & codes de connexion</button>
+			<button onclick="switchView('secretariat')" aria-selected="false" id="tab-secretariat">5. Documents Secrétariat</button>
+			<button onclick="switchView('analysis')" aria-selected="false" id="tab-analysis">6. Analyse des résultats</button>
+        </div>
+        
+        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color);">
+            <p style="font-size: 0.8rem; color: #666; text-align: center; margin-bottom: 10px;">Gestion des données</p>
+            <button class="btn" style="width: 100%; margin-bottom: 10px; background-color: #1f8d49;" onclick="exportData()">Sauvegarder</button>
+            <button class="btn" style="width: 100%; background-color: #555;" onclick="document.getElementById('importDataInput').click()">Importer</button>
+            <input type="file" id="importDataInput" style="display: none;" accept=".data" onchange="importData(event)">
+        </div>
+    </nav>
+
+    <main>
+        <section id="config" class="view active" aria-labelledby="tab-config">
+            <h2>Configuration de l'Établissement</h2>
+            <div class="form-group">
+                <label for="schoolName">Nom de l'établissement</label>
+                <input type="text" id="schoolName" placeholder="Ex: Collège XXX" onchange="appState.config.schoolName = this.value">
+            </div>
+            
+            <div class="form-group">
+                <label for="principalTitle">Titre du personnel de direction</label>
+                <input type="text" id="principalTitle" placeholder="Ex: Le Principal, La Principale, Le Proviseur..." onchange="appState.config.principalTitle = this.value">
+            </div>
+            
+            <div class="form-group">
+                <label for="principalName">Nom et Prénom du signataire</label>
+                <input type="text" id="principalName" placeholder="Ex: Jean Dupont" onchange="appState.config.principal = this.value">
+            </div>
+            <div class="form-group">
+                <label for="city">Commune</label>
+                <input type="text" id="city" placeholder="Ex: Bordeaux" onchange="appState.config.city = this.value">
+            </div>
+            <div class="form-group">
+                <label for="logoUpload">Logo de l'établissement (Image)</label>
+                <input type="file" id="logoUpload" accept="image/png, image/jpeg" onchange="handleLogoUpload(event)">
+                <img id="logoPreview" src="" alt="Aperçu du logo" style="max-height: 80px; display: none; margin-top: 10px; border: 1px solid #ccc; padding: 5px;">
+            </div>
+<div class="form-group">
+                <label for="signatureUpload">Signature numérisée du signataire (Image)</label>
+                <input type="file" id="signatureUpload" accept="image/png, image/jpeg" onchange="handleSignatureUpload(event)">
+                <img id="signaturePreview" src="" alt="Aperçu de la signature" style="max-height: 50px; display: none; margin-top: 10px; border: 1px solid #ccc; padding: 5px;">
+            </div>
+            
+            <hr style="margin: 30px 0;">
+            
+            <h3>Gestion des Classes</h3>
+            <div class="form-group">
+                <input type="text" id="newClass" placeholder="Ex: 3A" style="width: 200px; display: inline-block;">
+                <button class="btn" onclick="addClass()">Ajouter</button>
+            </div>
+            <ul id="classList"></ul>
+            
+        </section> <section id="students" class="view" aria-labelledby="tab-students">
+
+            <h2>Données Élèves</h2>
+            <button class="btn" onclick="openModal('modalPronote')">Importer les élèves (Copier-Coller Pronote)</button>
+			<div style="margin-top: 20px; padding: 15px; background-color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+    <h4 style="margin-top: 0; color: var(--primary-color);">Légende des types de tests (Profil candidat)</h4>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; font-size: 0.85rem;">
+        <div><strong>NC :</strong> Test classique chronométré</div>
+        <div><strong>AC :</strong> Test handicap auditif (avec chronomètre)</div>
+        <div><strong>NN :</strong> Test avec tiers-temps, avec ou sans tiers intervenant</div>
+        <div><strong>AN :</strong> Test handicap auditif avec tiers-temps, avec assistance d'un tiers intervenant</div>
+        <div><strong>VN :</strong> Test handicap visuel avec tiers-temps, avec assistance d'un tiers intervenant</div>
+    </div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+    <h3>Liste des élèves (<span id="studentCount">0</span>)</h3>
+	
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterClass" style="display: inline-block; margin-right: 10px;">Filtrer par classe :</label>
+        <select id="filterClass" style="width: auto; display: inline-block;" onchange="renderStudentsTable()">
+            <option value="">Toutes les classes</option>
+        </select>
+    </div>
+</div>            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Prénom</th>
+                            <th>Classe</th>
+                            <th title="Normal Chronométré">NC</th>
+                            <th title="Aménagé Chronométré">AC</th>
+                            <th title="Normal Non-chronométré">NN</th>
+                            <th title="Aménagé Non-chronométré">AN</th>
+                            <th title="Version Numérique spécifique">VN</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                        <tr><td colspan="8" style="text-align: center; color: #666;">Aucun élève importé pour le moment.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+			
+        </section>
+
+        <section id="timeslots" class="view" aria-labelledby="tab-timeslots">
+            <h2>Créneaux de passation et Affectation</h2>
+            <div class="form-group">
+                <label for="evlangFiles">Importer les fichiers de codes (CSV/Excel)</label>
+                <input type="file" id="evlangFiles" multiple accept=".csv, .xls, .xlsx">
+                <button class="btn" style="margin-top:10px;" onclick="processEvlangFiles()">Importer les créneaux</button>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fichier / Date Ev@lang</th>
+                            <th>Codes disponibles (Par type)</th>
+                            <th>Affecter à la classe</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timeslotsTableBody">
+                        <tr><td colspan="3" style="text-align: center; color: #666;">Aucun créneau importé.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="convocations" class="view" aria-labelledby="tab-convocations">
+            <h2>Génération des Convocations</h2>
+            <p>Une fois les élèves importés et les créneaux affectés aux classes, générez les PDF ici.</p>
+            <div id="convocationsActionList" class="table-container" style="padding: 20px;">
+                </div>
+        </section>
+		
+		<section id="secretariat" class="view" aria-labelledby="tab-secretariat">
+    <h2>Documents Secrétariat (Pochettes A3)</h2>
+    <p>Générez les chemises (format A3 paysage) pour classer les documents par classe. Le texte sera centré sur la page de droite (recto une fois plié).</p>
+    <div id="secretariatActionList" class="table-container" style="padding: 20px;">
+        </div>
+</section>
+
+<section id="analysis" class="view" aria-labelledby="tab-analysis">
+    <h2>Analyse des Résultats Ev@lang</h2>
+    <p>Importez l'export Excel des résultats issu de la plateforme https://evalangcollege.fr/ .</p>
+    
+    <div class="form-group" style="background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <label for="resultsFile" style="color: var(--primary-color);">Importer le fichier de résultats (.csv, .xlsx)</label>
+        <input type="file" id="resultsFile" accept=".csv, .xls, .xlsx">
+        <button class="btn" style="margin-top:10px;" onclick="processResultsFile()">Générer les statistiques</button>
+    </div>
+
+    <div id="analysisDashboard" style="margin-top: 30px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0;">Tableau de bord</h3>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="analysisScope" style="display: inline-block; margin-right: 10px;">Périmètre d'analyse :</label>
+                    <select id="analysisScope" style="width: auto; display: inline-block; font-weight: bold;" onchange="renderAnalysisDashboard()">
+                        </select>
+                </div>
+                <button class="btn" style="background-color: #e74c3c; padding: 8px 15px; display: flex; align-items: center; gap: 5px;" onclick="openModal('modalExportStats')">
+                    💾 Exporter en PDF
+                </button>
+            </div>
+        </div>
+        
+        <div id="analysisContent"></div>
+    </div>
+</section>
+
+    </main>
+
+    <div id="modalPronote" class="modal" aria-hidden="true" role="dialog">
+        <div class="modal-content">
+            <h2>Coller les données Pronote</h2>
+            <p>Colonnes attendues : Nom, Prénom, Classe, Sexe, Date de naissance.</p>
+            <textarea id="pronoteData" rows="8" placeholder="Collez le tableau ici..."></textarea>
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="btn" style="background: grey; margin-right: 10px;" onclick="closeModal('modalPronote')">Annuler</button>
+                <button class="btn" onclick="processPronoteData()">Valider</button>
+            </div>
+        </div>
+    </div>
+
+<div id="modalExportStats" class="modal" aria-hidden="true" role="dialog">
+        <div class="modal-content" style="width: 550px;">
+            <h2 style="color: var(--primary-color); margin-top: 0;">Exportation des Statistiques</h2>
+            <p>Quel format de rapport souhaitez-vous générer en PDF ?</p>
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+                <button class="btn" style="background-color: #2980b9; text-align: left; padding: 15px;" onclick="exportStatsPDF('current')">
+                    <strong>📄 Exporter uniquement la vue en cours</strong><br>
+                    <small>Génère 1 seule page correspondant à ce que vous voyez à l'écran.</small>
+                </button>
+                <button class="btn" style="background-color: #27ae60; text-align: left; padding: 15px;" onclick="exportStatsPDF('all')">
+                    <strong>📑 Exporter le rapport complet</strong><br>
+                    <small>Génère un PDF avec la cohorte globale PUIS une page par classe.</small>
+                </button>
+                <button class="btn" style="background-color: #7f8c8d;" onclick="closeModal('modalExportStats')">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+<div id="modalConvocationOptions" class="modal" aria-hidden="true" role="dialog" aria-labelledby="modalConvocationTitle">
+        <div class="modal-content" style="width: 550px;">
+            <h2 id="modalConvocationTitle" style="color: var(--primary-color); margin-top: 0;">Options d'impression</h2>
+            <p>Souhaitez-vous inclure les codes de connexion sur ces convocations ?</p>
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+                
+                <button id="btnConvocWithCodes" class="btn" style="background-color: #27ae60; text-align: left; padding: 15px;">
+                    <strong>🖨️ Convocations complètes (AVEC codes)</strong><br>
+                    <small>Génère le document avec l'URL de la plateforme et l'identifiant unique de l'élève.</small>
+                </button>
+                
+                <button id="btnConvocWithoutCodes" class="btn" style="background-color: #2980b9; text-align: left; padding: 15px;">
+                    <strong>🖨️ Convocations simples (SANS codes)</strong><br>
+                    <small>Génère une convocation classique. Pratique si vous distribuez les codes séparément le jour J.</small>
+                </button>
+                
+                <button class="btn" style="background-color: #7f8c8d;" onclick="closeModal('modalConvocationOptions')">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /** ÉTAT GLOBAL DE L'APPLICATION */
+        const appState = {
+            config: { schoolName: '', principal: '', city: '', logo: null },
+            classes: [], 
+            students: [], // {nom, prenom, classe, ddn, testType}
+            evlangCodes: [], // { filename, date, codes: { NC:[], AC:[], NN:[], AN:[], VN:[] } }
+            classMapping: {} // { '19_03_2026_09h30': '3A' } Mapping: Date -> Classe
+        };
+
+        const testTypes = ['NC', 'AC', 'NN', 'AN', 'VN'];
+
+        // --- NAVIGATION ET UI ---
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-selected', 'false'));
+            document.getElementById(viewId).classList.add('active');
+            document.getElementById('tab-' + viewId).setAttribute('aria-selected', 'true');
+if(viewId === 'secretariat') renderSecretariatView();
+            
+            if(viewId === 'timeslots') renderTimeslotsTable();
+            if(viewId === 'convocations') renderConvocationsView();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); document.getElementById('pronoteData').value = '';}
+
+        // --- CONFIGURATION ---
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    appState.config.logo = e.target.result; // Base64
+                    const preview = document.getElementById('logoPreview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+// NOUVELLE FONCTION : Import de la Signature
+        function handleSignatureUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Pourquoi : On stocke l'image en Base64 dans l'état
+                    appState.config.signature = e.target.result; 
+                    const preview = document.getElementById('signaturePreview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+function addClass() {
+    const input = document.getElementById('newClass');
+    const val = input.value.trim().toUpperCase();
+    if(val && !appState.classes.includes(val)) {
+        appState.classes.push(val);
+        input.value = '';
+        document.getElementById('classList').innerHTML = appState.classes.map(c => `<li>${c}</li>`).join('');
+        
+        // Mise à jour du filtre de la table des élèves
+        updateFilterOptions(); 
+        
+        // Si on est sur l'onglet créneaux, on rafraîchit le tableau pour voir la nouvelle classe dans les sélecteurs
+        if(document.getElementById('timeslots').classList.contains('active')) renderTimeslotsTable();
+    }
+}
+
+// --- IMPORTATION DES ÉLÈVES (CORRIGÉ POUR IGNORER L'EN-TÊTE) ---
+function processPronoteData() {
+    const rawData = document.getElementById('pronoteData').value;
+    const lines = rawData.split('\n');
+    appState.students = [];
+
+    // Fonction de nettoyage (enlève les guillemets et espaces superflus)
+    const cleanData = (str) => {
+        if (!str) return '';
+        return str.trim().replace(/^"|"$/g, '').trim();
+    };
+
+    // LOGIQUE MÉTIER : Déterminer si on doit sauter la première ligne
+    // On regarde si la première ligne contient des mots-clés d'en-tête
+    let startIndex = 0;
+    if (lines.length > 0 && (lines[0].toLowerCase().includes('nom') || lines[0].toLowerCase().includes('prénom') || lines[0].toLowerCase().includes('classe'))) {
+        startIndex = 1; // On commence à 1 pour ignorer la ligne d'en-tête
+    }
+
+    // Boucle sur les lignes de données
+    for(let i = startIndex; i < lines.length; i++) {
+        if(!lines[i].trim()) continue; // Ignore les lignes vides
+        
+        const row = lines[i].split(/[;\t]/); 
+        
+        if(row.length >= 3) { // Vérifie qu'on a au moins Nom, Prénom, Classe
+            const currentClass = cleanData(row[2]).toUpperCase();
+            
+            appState.students.push({
+                nom: cleanData(row[0]),
+                prenom: cleanData(row[1]),
+                classe: currentClass,
+                sexe: row[3] ? cleanData(row[3]) : '',
+                ddn: row[4] ? cleanData(row[4]) : '',
+                testType: 'NC' // NC par défaut
+            });
+            
+            // Auto-ajout de la classe si elle est nouvelle
+            if(currentClass && !appState.classes.includes(currentClass)) {
+                appState.classes.push(currentClass);
+            }
+        }
+    }
+    
+    // Mise à jour de l'interface utilisateur
+    document.getElementById('classList').innerHTML = appState.classes.map(c => `<li>${c}</li>`).join('');
+    document.getElementById('studentCount').innerText = appState.students.length;
+    
+    updateFilterOptions(); // Synchronise le filtre avec les nouvelles classes
+    renderStudentsTable();
+    closeModal('modalPronote');
+}
+        function renderStudentsTable() {
+    const tbody = document.getElementById('studentsTableBody');
+    const filterValue = document.getElementById('filterClass').value;
+    
+    // On filtre les élèves si une classe est sélectionnée
+    const filteredStudents = filterValue 
+        ? appState.students.filter(s => s.classe === filterValue)
+        : appState.students;
+
+    if(filteredStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #666;">Aucun élève trouvé.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filteredStudents.map((s) => {
+        // On récupère l'index réel dans l'ID global pour que le changement de radio affecte le bon élève
+        const globalIndex = appState.students.indexOf(s);
+        
+        let radiosHtml = testTypes.map(type => `
+            <td style="text-align: center;">
+                <input type="radio" name="testType_${globalIndex}" value="${type}" 
+                       ${s.testType === type ? 'checked' : ''} 
+                       onchange="appState.students[${globalIndex}].testType = this.value"
+                       aria-label="Aménagement ${type} pour ${s.nom}">
+            </td>
+        `).join('');
+
+        return `
+            <tr>
+                <td>${s.nom}</td>
+                <td>${s.prenom}</td>
+                <td>${s.classe}</td>
+                ${radiosHtml}
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateFilterOptions() {
+    const select = document.getElementById('filterClass');
+    const currentValue = select.value;
+    
+    // On réinitialise avec l'option par défaut
+    select.innerHTML = '<option value="">Toutes les classes</option>';
+    
+    // On ajoute chaque classe triée par ordre alphabétique
+    [...appState.classes].sort().forEach(className => {
+        const option = document.createElement('option');
+        option.value = className;
+        option.textContent = className;
+        if(className === currentValue) option.selected = true;
+        select.appendChild(option);
+    });
+}
+
+// --- CRÉNEAUX ET MAPPING ---
+        async function processEvlangFiles() {
+            const fileInput = document.getElementById('evlangFiles');
+            const files = fileInput.files;
+
+            // ATTENTION: On ne réinitialise plus appState.evlangCodes ici pour conserver l'historique !
+
+            for(let file of files) {
+                const filename = file.name;
+                
+                // Extraction de la date pour le nommage (Ex: 19_03_2026_09h30)
+                const dateMatch = filename.match(/\d{2}_\d{2}_\d{4}_\d{2}h\d{2}/);
+                const fileDate = dateMatch ? dateMatch[0] : filename;
+
+                // 1. GESTION DES DOUBLONS
+                const existingIndex = appState.evlangCodes.findIndex(slot => slot.date === fileDate);
+                if (existingIndex !== -1) {
+                    const overWrite = confirm(`Le créneau du ${fileDate} existe déjà dans votre liste.\nVoulez-vous le remplacer par ce nouveau fichier ?`);
+                    if (!overWrite) {
+                        continue; // L'utilisateur annule : on passe au fichier suivant sans l'importer
+                    } else {
+                        // L'utilisateur confirme : on supprime l'ancien créneau du tableau
+                        appState.evlangCodes.splice(existingIndex, 1);
+                    }
+                }
+
+                // 2. Lecture du fichier au format binaire natif
+                const arrayBuffer = await file.arrayBuffer();
+                
+                // 3. Décodage du fichier Excel (.xls, .xlsx ou .csv)
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                
+                // 4. Récupération du premier onglet du tableur
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // 5. Conversion de l'onglet en tableau JavaScript [Ligne][Colonne]
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                let parsedCodes = { NC: [], AC: [], NN: [], AN: [], VN: [] };
+                
+                // LOGIQUE MÉTIER STRICTE :
+                // On boucle à partir de la ligne 3 (donc index 2).
+                for(let i = 2; i < rows.length; i++) {
+                    const row = rows[i];
+                    
+                    if(row && row.length >= 2) {
+                        const code = String(row[1]).trim();
+                        if(code) {
+                            const regexMatch = code.match(/(NC|AC|NN|AN|VN)/);
+                            const typeFound = regexMatch ? regexMatch[1] : 'NC'; 
+                            
+                            parsedCodes[typeFound].push(code);
+                        }
+                    }
+                }
+                
+                // On ajoute le nouveau créneau à la liste globale
+                appState.evlangCodes.push({ filename: filename, date: fileDate, codes: parsedCodes });
+            }
+            
+            // 6. TRI CHRONOLOGIQUE CROISSANT (Du plus ancien au plus récent)
+            appState.evlangCodes.sort((a, b) => {
+                // Fonction pour transformer JJ_MM_AAAA_HHhMM en vraie Date informatique
+                const parseDate = (dateStr) => {
+                    const match = dateStr.match(/(\d{2})_(\d{2})_(\d{4})_(\d{2})h(\d{2})/);
+                    if(match) {
+                        // Format Standard : AAAA-MM-JJTHH:MM
+                        return new Date(`${match[3]}-${match[2]}-${match[1]}T${match[4]}:${match[5]}`);
+                    }
+                    return new Date(0); // Sécurité si le format n'est pas reconnu
+                };
+                
+                return parseDate(a.date) - parseDate(b.date);
+            });
+
+            // 7. Nettoyage de l'input file pour permettre d'importer à nouveau si besoin
+            fileInput.value = '';
+
+            // Met à jour le tableau visuel
+            renderTimeslotsTable();
+        }
+        function renderTimeslotsTable() {
+            const tbody = document.getElementById('timeslotsTableBody');
+            if(appState.evlangCodes.length === 0) return;
+
+            const classOptions = `<option value="">-- Assigner à une classe --</option>` + 
+                appState.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            tbody.innerHTML = appState.evlangCodes.map((slot, index) => {
+                // Création d'un résumé des codes dispos "NC: 25 | NN: 2"
+                const codesSummary = testTypes
+                    .filter(t => slot.codes[t].length > 0)
+                    .map(t => `<span style="display:inline-block; background:var(--table-header); padding:3px 8px; border-radius:12px; margin:2px;"><strong>${t}:</strong> ${slot.codes[t].length}</span>`)
+                    .join(' ');
+
+                // Récupération de l'assignation existante
+                const selectedClass = appState.classMapping[slot.date] || '';
+
+                return `
+                    <tr>
+                        <td><strong>${slot.date}</strong><br><small style="color:gray">${slot.filename}</small></td>
+                        <td>${codesSummary || 'Aucun code reconnu'}</td>
+                        <td>
+                            <select onchange="updateClassMapping('${slot.date}', this.value)">
+                                ${classOptions.replace(`value="${selectedClass}"`, `value="${selectedClass}" selected`)}
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+function updateClassMapping(date, className) {
+            // Si une classe est sélectionnée, on l'associe à CE créneau
+            if (className) {
+                appState.classMapping[date] = className;
+            } else {
+                // Si l'utilisateur remet "-- Assigner à une classe --", on libère ce créneau
+                delete appState.classMapping[date];
+            }
+        }
+// --- VUE CONVOCATIONS (CORRIGÉE POUR GÉRER LES MULTI-CRÉNEAUX) ---
+function renderConvocationsView() {
+    const container = document.getElementById('convocationsActionList');
+    
+    // LOGIQUE MÉTIER : On boucle sur les clés (les créneaux) qui ont une classe assignée
+    const mappedSlots = Object.keys(appState.classMapping);
+    
+    if(mappedSlots.length === 0) {
+        container.innerHTML = "<p>Aucune classe n'est actuellement liée à un créneau. Veuillez faire l'assignation dans le menu 3.</p>";
+        return;
+    }
+
+    container.innerHTML = mappedSlots.map(slotDate => {
+        const className = appState.classMapping[slotDate]; // On récupère la classe liée à ce créneau précis
+        
+        // Formatage lisible de la date pour l'affichage web
+        let displayDate = slotDate;
+        const dateMatch = slotDate.match(/(\d{2})_(\d{2})_(\d{4})_(\d{2})h(\d{2})/);
+        if(dateMatch) displayDate = `${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]} à ${dateMatch[4]}h${dateMatch[5]}`;
+
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee;">
+                <div>
+                    <h3 style="margin:0 0 5px 0;">Classe : ${className}</h3>
+                    <span style="color: #666;">Créneau : ${displayDate}</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" style="background-color: #27ae60;" onclick="generateSummaryPDF('${className}', '${slotDate}')">Liste des codes</button>
+					<button class="btn" style="background-color: #8e44ad;" onclick="generateCouponsPDF('${className}', '${slotDate}')">Coupons individuels</button>
+					<button class="btn" onclick="openConvocationModal('${className}', '${slotDate}')">Convocations individuelles</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// --- INTERCEPTION DE LA DEMANDE DE CONVOCATION ---
+// POURQUOI : On intercepte le clic pour afficher la modale. On injecte dynamiquement 
+// la classe et la date dans les boutons de la modale pour éviter d'utiliser des variables globales.
+function openConvocationModal(className, slotDate) {
+    document.getElementById('btnConvocWithCodes').onclick = () => {
+        closeModal('modalConvocationOptions');
+        generatePDF(className, slotDate, true); // Appel avec codes
+    };
+    
+    document.getElementById('btnConvocWithoutCodes').onclick = () => {
+        closeModal('modalConvocationOptions');
+        generatePDF(className, slotDate, false); // Appel sans codes
+    };
+    
+    openModal('modalConvocationOptions');
+}
+
+// NOUVELLE SIGNATURE : Ajout du paramètre includeCodes (vrai par défaut par sécurité)
+function generatePDF(className, slotDate, includeCodes = true) {
+    const slot = appState.evlangCodes.find(s => s.date === slotDate);
+    
+    const classStudents = appState.students
+        .filter(s => s.classe === className)
+        .sort((a, b) => a.nom.localeCompare(b.nom));
+
+    if(classStudents.length === 0) return alert("Aucun élève dans cette classe.");
+
+    const testDescriptions = {
+        'NC': 'Test classique chronométré',
+        'AC': 'Test handicap auditif (avec chronomètre)',
+        'NN': 'Test avec tiers-temps, avec ou sans tiers intervenant',
+        'AN': 'Test handicap auditif avec tiers-temps, avec assistance d\'un tiers intervenant',
+        'VN': 'Test handicap visuel avec tiers-temps, avec assistance d\'un tiers intervenant'
+    };
+
+    const availableCodes = JSON.parse(JSON.stringify(slot.codes));
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    let errorMsg = null;
+    
+    const schoolName = document.getElementById('schoolName').value || appState.config.schoolName || "";
+    const city = document.getElementById('city').value || appState.config.city || "";
+    const principalTitle = document.getElementById('principalTitle').value || appState.config.principalTitle || "Le Chef d'établissement";
+    const principalName = document.getElementById('principalName').value || appState.config.principal || "";
+
+    classStudents.forEach((student, index) => {
+        const typeNeeded = student.testType;
+        let assignedCode = null;
+
+        // LOGIQUE MÉTIER : On ne pioche un code dans la réserve QUE si l'option est activée.
+        // Cela évite de consommer des codes inutilement si on veut juste éditer le papier.
+        if (includeCodes) {
+            assignedCode = availableCodes[typeNeeded].pop();
+            if(!assignedCode) {
+                errorMsg = `ERREUR : Codes de type "${typeNeeded}" épuisés pour la classe ${className} (Manque pour : ${student.nom} ${student.prenom}).`;
+                return; 
+            }
+        }
+
+        if(index > 0) doc.addPage();
+        
+        doc.setFont("helvetica", "normal");
+        
+        if(appState.config.logo) {
+            try { doc.addImage(appState.config.logo, 'JPEG', 20, 15, 45, 0); } catch (e) { console.error(e); }
+        }
+
+        doc.setFontSize(10);
+        doc.text(`${schoolName}\n${city}`, 190, 25, { align: "right" });
+
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("CONVOCATION INDIVIDUELLE", 105, 50, { align: "center" });
+        doc.text("TEST DE POSITIONNEMENT EV@LANG", 105, 58, { align: "center" });
+        
+        doc.setDrawColor(200, 200, 200);
+        doc.line(60, 63, 150, 63);
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        
+        let dateConvoc = slotDate;
+        const dateMatch = slotDate.match(/(\d{2})_(\d{2})_(\d{4})_(\d{2})h(\d{2})/);
+        if(dateMatch) {
+            dateConvoc = `${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]} à ${dateMatch[4]}h${dateMatch[5]}`;
+        } else {
+            dateConvoc = slotDate.replace(/_/g, '/');
+        }
+        
+        doc.text("Madame, Monsieur,", 20, 80);
+        doc.text(`J'ai l'honneur de vous informer que votre enfant est convoqué(e) pour passer le test Ev@lang\npermettant d'évaluer ses compétences en Anglais.`, 20, 88);
+        doc.text("Ce test se déroulera dans l'établissement selon les modalités suivantes :", 20, 100);
+
+        doc.setDrawColor(230, 230, 230);
+        doc.setFillColor(250, 250, 250);
+        doc.rect(20, 105, 170, 25, 'FD');
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`Nom Prénom : ${student.nom} ${student.prenom}`, 25, 113);
+        doc.text(`Classe : ${student.classe}`, 130, 113); 
+        doc.text(`Date et heure du test : ${dateConvoc}`, 25, 123);
+
+        let yCurrent = 140;
+        if(student.testType !== 'NC') {
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "italic");
+            const desc = testDescriptions[student.testType] || "Aménagement spécifique";
+            doc.text(`Particularités de passation : ${desc}`, 20, yCurrent);
+            yCurrent += 10;
+        }
+
+        // 7. Bloc URL et Connexion - CONDITIONNÉ
+        if (includeCodes) {
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text("Veuillez vous rendre sur l'adresse suivante pour passer le test :", 105, yCurrent, { align: "center" });
+            yCurrent += 6;
+            
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 145);
+            doc.text("https://test.evalangcollege.fr/", 105, yCurrent, { align: "center" });
+            yCurrent += 12;
+
+            doc.setTextColor(0, 0, 0); 
+            doc.setFont("helvetica", "normal");
+            doc.text("Voici vos identifiants personnels et uniques pour vous connecter :", 105, yCurrent, { align: "center" });
+            yCurrent += 8; 
+
+            doc.setDrawColor(0, 0, 145);
+            doc.setFillColor(243, 243, 255);
+            doc.rect(60, yCurrent, 90, 18, 'FD');
+            
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 145);
+            doc.text(`CODE : ${assignedCode}`, 105, yCurrent + 12, { align: "center" });
+            
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text("Ce code est à usage unique et strictement confidentiel.", 105, yCurrent + 25, { align: "center" });
+        } else {
+            // Optionnel : un petit message pour rassurer si on imprime sans les codes.
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "italic");
+            doc.text("Les codes de connexion vous seront communiqués ultérieurement.", 105, yCurrent + 10, { align: "center" });
+        }
+
+        // 8. Pied de page (Les coordonnées Y sont fixes (210, 240) donc non impactées par l'absence du bloc 7)
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("Consignes importantes :\n- Se munir impérativement de cette convocation.\n- Se présenter 10 minutes avant l'heure indiquée devant la salle d'examen.\n- Apporter OBLIGATOIREMENT des écouteurs filaires.", 20, 210);
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "italic");
+        doc.text(`${principalTitle},`, 150, 240, { align: "center" });
+        
+        if(principalName) {
+            doc.setFont("helvetica", "bold");
+            doc.text(principalName, 150, 246, { align: "center" });
+        }
+        
+        if(appState.config.signature) {
+            try { doc.addImage(appState.config.signature, 'JPEG', 133.5, 249, 33, 0); } catch (e) { }
+        }
+    });
+
+    if(errorMsg) {
+        alert(errorMsg);
+    } else {
+        const suffix = includeCodes ? "" : "_SANS_CODES";
+        doc.save(`Convocations_Evlang_${className}${suffix}.pdf`);
+    }
+}
+		
+		// --- SAUVEGARDE ET RESTAURATION DES DONNÉES (.DATA) ---
+
+        function exportData() {
+            // 1. Convertir l'état global en texte (JSON)
+            const dataStr = JSON.stringify(appState);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            // 2. Formater la date du jour (YYYY MM DD)
+            const date = new Date();
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const filename = `${yyyy} ${mm} ${dd} sauvegarde orga Evalang.data`;
+
+            // 3. Déclencher le téléchargement
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 4. Nettoyage
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+// --- IMPORTATION DE LA SAUVEGARDE GLOBALE (.data) ---
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedState = JSON.parse(e.target.result);
+            Object.assign(appState, importedState);
+            
+            // 1. Restauration de la configuration
+            document.getElementById('schoolName').value = appState.config.schoolName || '';
+            document.getElementById('principalTitle').value = appState.config.principalTitle || '';
+            document.getElementById('principalName').value = appState.config.principal || '';
+            document.getElementById('city').value = appState.config.city || '';
+            
+            if(appState.config.logo) {
+                const preview = document.getElementById('logoPreview');
+                preview.src = appState.config.logo;
+                preview.style.display = 'block';
+            }
+            
+            if(appState.config.signature) {
+                const preview = document.getElementById('signaturePreview');
+                preview.src = appState.config.signature;
+                preview.style.display = 'block';
+            }
+            
+            // 2. Mise à jour des listes UI standards
+            document.getElementById('classList').innerHTML = appState.classes.map(c => `<li>${c}</li>`).join('');
+            document.getElementById('studentCount').innerText = appState.students.length;
+            
+            // 3. Rafraîchissement global des vues standards
+            updateFilterOptions();
+            renderStudentsTable();
+            renderTimeslotsTable();
+            renderConvocationsView();
+            
+            // --- 4. NOUVEAU : Restauration de l'Analyse des Résultats ---
+            if (appState.results && appState.results.length > 0) {
+                const scopeSelect = document.getElementById('analysisScope');
+                if (scopeSelect) {
+                    // Reconstruire le menu déroulant des classes pour le filtrage
+                    scopeSelect.innerHTML = '<option value="ALL">Cohorte Globale (Tout l\'établissement)</option>';
+                    const availableClasses = [...new Set(appState.results.map(r => r.classe))].filter(c => c !== 'Inconnue').sort();
+                    availableClasses.forEach(c => {
+                        scopeSelect.innerHTML += `<option value="${c}">Classe : ${c}</option>`;
+                    });
+                    
+                    // Réafficher le tableau de bord
+                    document.getElementById('analysisDashboard').style.display = 'block';
+                    renderAnalysisDashboard();
+                }
+            }
+            
+            alert("Données restaurées avec succès !");
+        } catch (error) {
+            alert("Erreur lors de l'importation. Le fichier est-il corrompu ou d'un mauvais format ?");
+            console.error(error);
+        }
+        
+        // Réinitialiser l'input pour permettre de réimporter le même fichier si besoin
+        event.target.value = '';
+    };
+    
+    reader.readAsText(file);
+}
+// --- VUE SECRÉTARIAT ---
+function renderSecretariatView() {
+    const container = document.getElementById('secretariatActionList');
+    
+    // On se base sur toutes les classes connues dans l'application
+    if(appState.classes.length === 0) {
+        container.innerHTML = "<p>Aucune classe n'est actuellement enregistrée. Importez d'abord des élèves.</p>";
+        return;
+    }
+
+    container.innerHTML = appState.classes.sort().map(className => {
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee;">
+                <div>
+                    <h3 style="margin:0 0 5px 0;">Classe : ${className}</h3>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                    <button class="btn" style="background-color: #e67e22;" onclick="generatePochettePDF('${className}', 'Convocations')">Pochette Convocations</button>
+                    <button class="btn" style="background-color: #3498db;" onclick="generatePochettePDF('${className}', 'Coupons')">Pochette Coupons</button>
+                    <button class="btn" style="background-color: #8e44ad;" onclick="generatePochettePDF('${className}', 'Résultats')">Pochette Résultats</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+// --- GÉNÉRATION DU PDF A3 (POCHETTES SECRÉTARIAT) ---
+function generatePochettePDF(className, type) {
+    const { jsPDF } = window.jspdf;
+    
+    // Initialisation en format A3, orientation paysage
+    const doc = new jsPDF({ orientation: 'landscape', format: 'a3' });
+    
+    // Logique géométrique : Largeur totale = 420mm. 
+    // Axe de pliure = 210mm.
+    // Centre de la page de droite = 315mm.
+    const centerRightPage = 315; 
+    
+    // Récupération des données dynamiques
+    const schoolName = document.getElementById('schoolName').value || appState.config.schoolName || "Établissement non renseigné";
+    const city = document.getElementById('city').value || appState.config.city || "";
+    
+    // Ligne de pliure (discrète et pointillée) pour guider le pliage au secrétariat
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineDashPattern([2, 4], 0);
+    doc.line(210, 0, 210, 297);
+    doc.setLineDashPattern([], 0); // Réinitialisation du trait
+
+    let currentY = 50;
+
+    // 1. Intégration du Logo (Centré sur l'axe 315mm)
+    if(appState.config.logo) {
+        try {
+            // On fixe une largeur de 50mm. Pour centrer, on décale de la moitié (25mm) à gauche du centre.
+            doc.addImage(appState.config.logo, 'JPEG', centerRightPage - 37, currentY, 75, 0);
+            currentY += 60;
+        } catch (e) { console.error("Erreur intégration logo:", e); }
+    } else {
+        currentY += 20;
+    }
+
+    // 2. En-tête Institutionnel
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(16);
+    doc.setTextColor(50, 50, 50);
+    doc.text(schoolName, centerRightPage, currentY, { align: "center" });
+    currentY += 8;
+    doc.setFontSize(14);
+    doc.text(city, centerRightPage, currentY, { align: "center" });
+    currentY += 45;
+
+    // 3. Titre du document et Type
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(0, 0, 145); // Bleu primaire du gouvernement
+    doc.text("TEST DE POSITIONNEMENT EV@LANG", centerRightPage, currentY, { align: "center" });
+    currentY += 15;
+
+    doc.setTextColor(0, 0, 0);
+    
+    // LOGIQUE MÉTIER : Détermination du texte et de la taille de police selon le type
+    let typeText = "CONVOCATIONS";
+    doc.setFontSize(36); // Taille par défaut
+    
+    if (type === 'Résultats') {
+        typeText = "RÉSULTATS";
+    } else if (type === 'Coupons') {
+        typeText = "COUPONS DE CONNEXION";
+        doc.setFontSize(30); // On réduit légèrement pour que ce texte plus long tienne sur une ligne
+    }
+
+    doc.text(`${typeText}`, centerRightPage, currentY, { align: "center" });
+    currentY += 45;
+
+    // 4. Identifiant de la Classe (Très grand pour être lisible de loin dans une armoire)
+    doc.setFontSize(55);
+    doc.setTextColor(0, 0, 145);
+    doc.text(`${className}`, centerRightPage, currentY, { align: "center" });
+
+    // 5. Bas de page / Mentions
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(12);
+    doc.setTextColor(150, 150, 150);
+    const currentYear = new Date().getFullYear();
+    doc.text(`Session ${currentYear}`, centerRightPage, 280, { align: "center" });
+
+    // Sauvegarde avec un nommage propre
+    doc.save(`A3_Pochette_${type}_${className}.pdf`);
+}
+// --- GÉNÉRATION DE LA LISTE RÉCAPITULATIVE DES CODES (AVEC QUADRILLAGE) ---
+function generateSummaryPDF(className, slotDate) {
+    const slot = appState.evlangCodes.find(s => s.date === slotDate);
+    
+    // Tri alphabétique des élèves
+    const classStudents = appState.students
+        .filter(s => s.classe === className)
+        .sort((a, b) => a.nom.localeCompare(b.nom));
+
+    if(classStudents.length === 0) return alert("Aucun élève dans cette classe.");
+
+    const availableCodes = JSON.parse(JSON.stringify(slot.codes));
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    let errorMsg = null;
+    
+    const schoolName = document.getElementById('schoolName').value || appState.config.schoolName || "";
+    const city = document.getElementById('city').value || appState.config.city || "";
+
+    let dateConvoc = slotDate;
+    const dateMatch = slotDate.match(/(\d{2})_(\d{2})_(\d{4})_(\d{2})h(\d{2})/);
+    if(dateMatch) {
+        dateConvoc = `Le ${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]} à ${dateMatch[4]}h${dateMatch[5]}`;
+    }
+
+    let currentY = 20;
+    const rowHeight = 8; // Hauteur fixe pour chaque ligne du tableau
+
+    // --- FONCTION D'EN-TÊTE ---
+    const drawHeader = () => {
+        if(appState.config.logo) {
+            try { doc.addImage(appState.config.logo, 'JPEG', 20, 10, 30, 0); } catch (e) { }
+        }
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${schoolName}\n${city}`, 190, 15, { align: "right" });
+
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 145);
+        doc.text("LISTE RÉCAPITULATIVE DES CODES EV@LANG", 105, 30, { align: "center" });
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Classe : ${className}   |   Créneau : ${dateConvoc}`, 105, 38, { align: "center" });
+
+        // En-têtes du tableau avec cadre
+        doc.setDrawColor(0, 0, 0); // Bordures noires
+        doc.setFillColor(240, 240, 250); // Fond gris-bleu clair
+        doc.rect(20, 45, 170, 10, 'FD'); // 'FD' = Fill & Draw (Remplir et tracer les contours)
+        
+        // Lignes verticales de l'en-tête
+        doc.line(75, 45, 75, 55);
+        doc.line(130, 45, 130, 55);
+        doc.line(155, 45, 155, 55);
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("Nom", 22, 52);
+        doc.text("Prénom", 77, 52);
+        doc.text("Profil", 132, 52);
+        doc.text("Code d'accès", 157, 52);
+        
+        currentY = 55; // On commence à tracer les élèves juste sous l'en-tête (45 + 10)
+    };
+
+    drawHeader();
+
+    // --- REMPLISSAGE DU TABLEAU ---
+    doc.setFontSize(10);
+
+    classStudents.forEach((student, index) => {
+        const typeNeeded = student.testType;
+        const assignedCode = availableCodes[typeNeeded].pop();
+
+        if(!assignedCode) {
+            errorMsg = `ERREUR : Codes de type "${typeNeeded}" épuisés pour la classe ${className} (Manque pour : ${student.nom} ${student.prenom}).`;
+            return; 
+        }
+
+        // Saut de page si on arrive en bas
+        if(currentY > 275) {
+            doc.addPage();
+            drawHeader();
+            doc.setFontSize(10);
+        }
+
+        // Dessin de la case de la ligne
+        doc.setDrawColor(0, 0, 0);
+        if(index % 2 === 1) {
+            doc.setFillColor(250, 250, 250);
+            doc.rect(20, currentY, 170, rowHeight, 'FD'); // Ligne grise
+        } else {
+            doc.rect(20, currentY, 170, rowHeight, 'S'); // Ligne blanche ('S' pour Stroke uniquement)
+        }
+
+        // Lignes verticales de séparation des colonnes
+        doc.line(75, currentY, 75, currentY + rowHeight);
+        doc.line(130, currentY, 130, currentY + rowHeight);
+        doc.line(155, currentY, 155, currentY + rowHeight);
+
+        // Ajustement pour centrer le texte verticalement dans la case
+        const textY = currentY + 5.5; 
+
+        doc.setFont("helvetica", "normal");
+        doc.text(student.nom.substring(0, 25), 22, textY);
+        doc.text(student.prenom.substring(0, 20), 77, textY);
+        
+        // Centrage du profil
+        doc.text(student.testType, 142.5, textY, { align: "center" });
+        
+        doc.setFont("helvetica", "bold");
+        doc.text(assignedCode, 157, textY);
+
+        currentY += rowHeight; 
+    });
+
+    if(errorMsg) {
+        alert(errorMsg);
+    } else {
+        doc.save(`Liste_Codes_Evlang_${className}.pdf`);
+    }
+}
+
+// --- IMPORT ET TRAITEMENT DES RÉSULTATS EV@LANG (COLONNES FIXES) ---
+async function processResultsFile() {
+    const fileInput = document.getElementById('resultsFile');
+    if(!fileInput.files.length) return alert("Veuillez sélectionner un fichier de résultats.");
+    
+    const file = fileInput.files[0];
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+    if(rows.length < 2) return alert("Le fichier semble vide ou mal formaté.");
+    
+    // On garde une recherche dynamique juste pour les noms/prénoms au cas où, 
+    // mais on fixe les scores sur les colonnes exactes demandées.
+    const headers = rows[0].map(h => String(h).toLowerCase().trim());
+    
+    const colIdx = {
+        sexe: 0,     // Colonne A
+        nom: headers.findIndex(h => h.includes('nom')) !== -1 ? headers.findIndex(h => h.includes('nom')) : 1,       // Colonne B par défaut
+        prenom: headers.findIndex(h => h.includes('prénom') || h.includes('prenom')) !== -1 ? headers.findIndex(h => h.includes('prénom') || h.includes('prenom')) : 2, // Colonne C par défaut
+        classe: headers.findIndex(h => h.includes('classe') || h.includes('groupe')),
+        ce: 6,       // Colonne G - Compréhension Écrite
+        co: 9,       // Colonne J - Compréhension Orale
+        gl: 12,      // Colonne M - Grammaire & Lexique
+        global: 15   // Colonne P - Niveau Global
+    };
+
+    appState.results = [];
+
+    for(let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if(!r || !r[colIdx.nom]) continue; 
+        
+        const nom = String(r[colIdx.nom]).trim();
+        const prenom = colIdx.prenom !== -1 && r[colIdx.prenom] ? String(r[colIdx.prenom]).trim() : '';
+        
+        // Extraction du Sexe (Colonne A)
+        let rawSexe = r[colIdx.sexe] ? String(r[colIdx.sexe]).trim().toUpperCase() : '';
+        let sexeClean = 'N/A';
+        
+        if (rawSexe === 'HOMME' || rawSexe.startsWith('H') || rawSexe === 'M' || rawSexe === 'G') {
+            sexeClean = 'G'; 
+        }
+        if (rawSexe === 'FEMME' || rawSexe.startsWith('F') || rawSexe === 'MME') {
+            sexeClean = 'F'; 
+        }
+
+        // Croisement avec Pronote pour la classe
+        const studentMatch = appState.students.find(s => 
+            s.nom.toUpperCase() === nom.toUpperCase() && 
+            s.prenom.toUpperCase() === prenom.toUpperCase()
+        );
+
+        let classeClean = 'Inconnue';
+        if (colIdx.classe !== -1 && r[colIdx.classe]) {
+            classeClean = String(r[colIdx.classe]).trim();
+        } else if (studentMatch) {
+            classeClean = studentMatch.classe;
+        }
+
+        // Récupération des scores sur les index fixes
+        appState.results.push({
+            nom: nom,
+            prenom: prenom,
+            classe: classeClean,
+            sexe: sexeClean,
+            global: r[colIdx.global] ? String(r[colIdx.global]).trim() : 'Absent',
+            ce: r[colIdx.ce] ? String(r[colIdx.ce]).trim() : '-',
+            co: r[colIdx.co] ? String(r[colIdx.co]).trim() : '-',
+            gl: r[colIdx.gl] ? String(r[colIdx.gl]).trim() : '-'
+        });
+    }
+
+    const scopeSelect = document.getElementById('analysisScope');
+    scopeSelect.innerHTML = '<option value="ALL">Cohorte Globale (Tout l\'établissement)</option>';
+    
+    const availableClasses = [...new Set(appState.results.map(r => r.classe))].filter(c => c !== 'Inconnue').sort();
+    availableClasses.forEach(c => {
+        scopeSelect.innerHTML += `<option value="${c}">Classe : ${c}</option>`;
+    });
+
+    document.getElementById('analysisDashboard').style.display = 'block';
+    renderAnalysisDashboard();
+}
+
+// --- GÉNÉRATION DES STATISTIQUES (WEB - ÉCHELLE DYNAMIQUE ET TABLEAU DÉTAILLÉ) ---
+function renderAnalysisDashboard() {
+    const scope = document.getElementById('analysisScope').value;
+    const container = document.getElementById('analysisContent');
+    
+    let data = appState.results;
+    if (scope !== 'ALL') {
+        data = data.filter(r => r.classe === scope);
+    }
+
+    if(!data || data.length === 0) {
+        container.innerHTML = "<p>Aucune donnée à analyser pour cette sélection.</p>";
+        return;
+    }
+
+    const allLevels = ["A1 non atteint", "A1", "A1+", "A2", "A2+", "B1", "B1+", "Au-delà de B1"];
+
+    // UTILITAIRE DE COULEUR WEB
+    const getColorHex = (lvl) => {
+        if (!lvl || lvl === '-' || lvl === 'Absent') return '#333333';
+        const l = lvl.toLowerCase();
+        if (l.includes('non atteint') || l.includes('deçà')) return '#7f8c8d'; // Gris
+        if (l.includes('a1')) return '#e74c3c'; // Rouge
+        if (l.includes('a2')) return '#f39c12'; // Orange
+        if (l.includes('b1') || l.includes('au-delà')) return '#27ae60'; // Vert
+        return '#333333';
+    };
+
+    const generateStatTable = (title, dataKey) => {
+        const totalAbs = data.filter(r => r[dataKey] === 'Absent' || r[dataKey] === '-').length;
+        const presents = data.length - totalAbs;
+
+        let maxPercent = 0;
+        const levelStats = allLevels.map(lvl => {
+            const subset = data.filter(r => {
+                const val = r[dataKey];
+                if (!val || val === '-' || val === 'Absent') return false;
+                if (lvl === "A1 non atteint") return val.toLowerCase().includes('non atteint') || val.toLowerCase().includes('deçà') || val.toLowerCase().includes('inférieur') || val === 'A1-';
+                if (lvl === "Au-delà de B1") return val.toLowerCase().includes('au-delà') || val === 'B2' || val === 'C1' || val === 'C2';
+                return val === lvl;
+            });
+
+            const fCount = subset.filter(r => r.sexe === 'F').length;
+            const gCount = subset.filter(r => r.sexe === 'G').length; 
+            const total = subset.length;
+            const percent = presents > 0 ? (total / presents) * 100 : 0;
+            
+            if (percent > maxPercent) maxPercent = percent;
+
+            return { lvl, fCount, gCount, total, percent: parseFloat(percent.toFixed(1)) };
+        });
+
+        const scaleFactor = maxPercent > 0 ? (100 / maxPercent) : 1;
+
+        let html = `
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
+            <h4 style="margin-top: 0; color: var(--primary-color); border-bottom: 2px solid var(--table-header); padding-bottom: 10px; font-size: 1.1rem;">${title}</h4>
+            <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.95rem;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; padding: 10px; border-bottom: 2px solid var(--border-color); width: 20%;">Niveau</th>
+                        <th style="padding: 10px; border-bottom: 2px solid var(--border-color); width: 10%; color: #d35400;">Filles</th>
+                        <th style="padding: 10px; border-bottom: 2px solid var(--border-color); width: 10%; color: #2980b9;">Garçons</th>
+                        <th style="padding: 10px; border-bottom: 2px solid var(--border-color); background: #f9f9f9; width: 10%;">Total</th>
+                        <th style="text-align: left; padding: 10px; border-bottom: 2px solid var(--border-color); width: 50%;">Répartition (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        let totalF = 0, totalG = 0;
+
+        levelStats.forEach(stat => {
+            totalF += stat.fCount;
+            totalG += stat.gCount;
+
+            let barColor = getColorHex(stat.lvl);
+            const rowOpacity = stat.total === 0 ? '0.4' : '1';
+            const visualWidth = stat.total > 0 ? Math.min(stat.percent * scaleFactor, 100) : 0;
+
+            html += `
+                <tr style="border-bottom: 1px solid #eee; opacity: ${rowOpacity};">
+                    <td style="text-align: left; padding: 10px; font-weight: bold; color: #333;">${stat.lvl}</td>
+                    <td style="padding: 10px; color: #d35400; font-weight: bold;">${stat.fCount}</td>
+                    <td style="padding: 10px; color: #2980b9; font-weight: bold;">${stat.gCount}</td>
+                    <td style="padding: 10px; font-weight: bold; background: #f9f9f9;">${stat.total}</td>
+                    <td style="padding: 10px; text-align: left;">
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: ${visualWidth}%; background-color: ${barColor}; height: 14px; border-radius: 4px; margin-right: 10px; transition: width 0.5s;"></div>
+                            <span style="font-size: 0.85rem; color: #666; min-width: 35px;">${stat.percent}%</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                <tr style="background-color: var(--table-header); font-weight: bold;">
+                    <td style="text-align: left; padding: 12px;">TOTAL PRÉSENTS</td>
+                    <td style="color: #d35400;">${totalF}</td>
+                    <td style="color: #2980b9;">${totalG}</td>
+                    <td style="background: #e3e3fd; font-size: 1.1em;">${totalF + totalG}</td>
+                    <td></td>
+                </tr>
+                </tbody>
+            </table>
+            ${totalAbs > 0 ? `<div style="font-size: 0.85rem; color: #e74c3c; margin-top: 15px; text-align: right; font-style: italic;">* Non évalués / Absents : ${totalAbs} élève(s)</div>` : ''}
+        </div>
+        `;
+        return html;
+    };
+
+    const sortedData = [...data].sort((a, b) => a.nom.localeCompare(b.nom));
+    
+    let detailsHtml = `
+        <div style="margin-top: 40px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
+            <h3 style="margin-top: 0; color: var(--primary-color); border-bottom: 2px solid var(--table-header); padding-bottom: 10px;">Résultats nominatifs</h3>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 12px; border-bottom: 2px solid var(--border-color); background-color: var(--table-header);">Nom</th>
+                            <th style="padding: 12px; border-bottom: 2px solid var(--border-color); background-color: var(--table-header);">Prénom</th>
+                            <th style="padding: 12px; border-bottom: 2px solid var(--border-color); background-color: var(--table-header);">Classe</th>
+                            <th style="padding: 12px; border-bottom: 2px solid var(--border-color); background-color: #e8f8f5;">Niveau Global</th>
+                            <th style="padding: 12px; border-bottom: 2px solid var(--border-color); background-color: #fef9e7;">C. Orale (CO)</th>
+                            <th style="padding: 12px; border-bottom: 2px solid var(--border-color); background-color: #fef9e7;">C. Écrite (CE)</th>
+                            <th style="padding: 12px; border-bottom: 2px solid var(--border-color); background-color: #f4ecf7;">Grammaire (GL)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+
+    sortedData.forEach((student, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+        
+        // Application dynamique des couleurs
+        const cGlob = getColorHex(student.global);
+        const cCo = getColorHex(student.co);
+        const cCe = getColorHex(student.ce);
+        const cGl = getColorHex(student.gl);
+
+        detailsHtml += `
+            <tr style="background-color: ${bg}; border-bottom: 1px solid #eee;">
+                <td style="padding: 10px; font-weight: bold;">${student.nom}</td>
+                <td style="padding: 10px;">${student.prenom}</td>
+                <td style="padding: 10px;">${student.classe}</td>
+                <td style="padding: 10px; font-weight: bold; color: ${cGlob};">${student.global}</td>
+                <td style="padding: 10px; font-weight: bold; color: ${cCo};">${student.co}</td>
+                <td style="padding: 10px; font-weight: bold; color: ${cCe};">${student.ce}</td>
+                <td style="padding: 10px; font-weight: bold; color: ${cGl};">${student.gl}</td>
+            </tr>
+        `;
+    });
+
+    detailsHtml += `</tbody></table></div></div>`;
+
+    container.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+            ${generateStatTable("Score Global", "global")}
+            ${generateStatTable("Compréhension de l'Oral (CO)", "co")}
+            ${generateStatTable("Compréhension des Écrits (CE)", "ce")}
+            ${generateStatTable("Grammaire & Lexique (GL)", "gl")}
+        </div>
+        ${detailsHtml}
+    `;
+}
+
+// --- EXPORT PDF DES STATISTIQUES ET RÉSULTATS NOMINATIFS ---
+// NOUVEAUTÉ : Colorisation dynamique des résultats (Rouge/Orange/Vert)
+function exportStatsPDF(mode) {
+    closeModal('modalExportStats');
+    const { jsPDF } = window.jspdf;
+    
+    const doc = new jsPDF({ orientation: 'landscape', format: 'a4' }); 
+    
+    const inputSchoolName = document.getElementById('schoolName').value.trim();
+    const stateSchoolName = appState.config.schoolName ? appState.config.schoolName.trim() : "";
+    const schoolName = inputSchoolName || stateSchoolName || "Nom de l'établissement non configuré";
+    
+    let scopesToExport = [];
+    if (mode === 'current') {
+        scopesToExport.push(document.getElementById('analysisScope').value);
+    } else {
+        scopesToExport.push('ALL');
+        const classes = [...new Set(appState.results.map(r => r.classe))].filter(c => c !== 'Inconnue').sort();
+        scopesToExport = scopesToExport.concat(classes);
+    }
+
+    const allLevels = ["A1 non atteint", "A1", "A1+", "A2", "A2+", "B1", "B1+", "Au-delà de B1"];
+
+    // UTILITAIRE DE COULEUR PDF (Renvoie un tableau RGB)
+    const getRGB = (lvl) => {
+        if (!lvl || lvl === '-' || lvl === 'Absent') return [0, 0, 0];
+        const l = lvl.toLowerCase();
+        if (l.includes('non atteint') || l.includes('deçà')) return [127, 140, 141]; // Gris
+        if (l.includes('a1')) return [231, 76, 60]; // Rouge
+        if (l.includes('a2')) return [243, 156, 18]; // Orange
+        if (l.includes('b1') || l.includes('au-delà')) return [39, 174, 96]; // Vert
+        return [0, 0, 0];
+    };
+
+    scopesToExport.forEach((scope, index) => {
+        if (index > 0) doc.addPage("a4", "landscape"); 
+        
+        let data = appState.results;
+        let scopeName = "Cohorte Globale (Tout l'établissement)";
+        if (scope !== 'ALL') {
+            data = data.filter(r => r.classe === scope);
+            scopeName = `Classe : ${scope}`;
+        }
+
+        // ==========================================
+        // PAGE 1 : LES GRAPHIQUES ET STATISTIQUES
+        // ==========================================
+        if(appState.config.logo) {
+            try { doc.addImage(appState.config.logo, 'JPEG', 15, 10, 25, 0); } catch(e){}
+        }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(0, 0, 145);
+        doc.text("RAPPORT STATISTIQUE EV@LANG", 148.5, 20, { align: "center" });
+        
+        doc.setFontSize(12);
+        doc.setTextColor(50, 50, 50);
+        doc.text(`${schoolName} - ${scopeName}`, 148.5, 28, { align: "center" });
+        
+        doc.setDrawColor(200, 200, 200);
+        doc.line(15, 32, 282, 32);
+
+        const drawStatBox = (title, dataKey, startX, startY) => {
+            const totalAbs = data.filter(r => r[dataKey] === 'Absent' || r[dataKey] === '-').length;
+            const presents = data.length - totalAbs;
+
+            let maxPercent = 0;
+            const levelStats = allLevels.map(lvl => {
+                const subset = data.filter(r => {
+                    const val = r[dataKey];
+                    if (!val || val === '-' || val === 'Absent') return false;
+                    if (lvl === "A1 non atteint") return val.toLowerCase().includes('non atteint') || val.toLowerCase().includes('deçà') || val.toLowerCase().includes('inférieur') || val === 'A1-';
+                    if (lvl === "Au-delà de B1") return val.toLowerCase().includes('au-delà') || val === 'B2' || val === 'C1' || val === 'C2';
+                    return val === lvl;
+                });
+                const total = subset.length;
+                const percent = presents > 0 ? (total / presents) * 100 : 0;
+                if (percent > maxPercent) maxPercent = percent;
+                
+                return {
+                    lvl, 
+                    fCount: subset.filter(r => r.sexe === 'F').length, 
+                    gCount: subset.filter(r => r.sexe === 'G').length, 
+                    total, 
+                    percent: parseFloat(percent.toFixed(1))
+                };
+            });
+
+            const scaleFactor = maxPercent > 0 ? (100 / maxPercent) : 1;
+
+            doc.setDrawColor(200, 200, 200);
+            doc.setFillColor(255, 255, 255);
+            doc.rect(startX, startY, 130, 80, 'FD'); 
+
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 145);
+            doc.text(title, startX + 5, startY + 7);
+
+            const tableTopY = startY + 11;
+            doc.setFillColor(245, 245, 250);
+            doc.rect(startX, tableTopY, 130, 6, 'FD');
+
+            doc.setFontSize(9);
+            doc.setTextColor(80, 80, 80);
+            doc.text("Niveau", startX + 13.5, tableTopY + 4.2, {align: "center"});
+            doc.text("Filles", startX + 32.5, tableTopY + 4.2, {align: "center"});
+            doc.text("Garçons", startX + 45, tableTopY + 4.2, {align: "center"});
+            doc.text("Total", startX + 57.5, tableTopY + 4.2, {align: "center"});
+            doc.text("Répartition", startX + 96, tableTopY + 4.2, {align: "center"});
+
+            let currentY = tableTopY + 6;
+            const rowHeight = 6.2;
+            let totalF = 0, totalG = 0;
+
+            levelStats.forEach((stat) => {
+                totalF += stat.fCount;
+                totalG += stat.gCount;
+
+                doc.setFont("helvetica", stat.total > 0 ? "bold" : "normal");
+                doc.setTextColor(stat.total > 0 ? 30 : 180); 
+                
+                doc.setDrawColor(220, 220, 220);
+                doc.line(startX, currentY + rowHeight, startX + 130, currentY + rowHeight);
+
+                const textBaseY = currentY + 4.2;
+                doc.text(stat.lvl, startX + 2, textBaseY);
+                doc.text(stat.fCount.toString(), startX + 32.5, textBaseY, {align: "center"});
+                doc.text(stat.gCount.toString(), startX + 45, textBaseY, {align: "center"});
+                doc.text(stat.total.toString(), startX + 57.5, textBaseY, {align: "center"});
+                
+                if (stat.total > 0) {
+                    const cBar = getRGB(stat.lvl);
+                    doc.setFillColor(cBar[0], cBar[1], cBar[2]);
+                    const visualPercent = Math.min(stat.percent * scaleFactor, 100);
+                    const barW = Math.max((visualPercent / 100) * 55, 1); 
+                    
+                    doc.rect(startX + 65, currentY + 1.2, barW, 4, 'F');
+                    
+                    doc.setFontSize(8);
+                    doc.text(`${stat.percent}%`, startX + 65 + barW + 2, textBaseY);
+                    doc.setFontSize(9);
+                } else {
+                    doc.setFontSize(8);
+                    doc.text(`0%`, startX + 65, textBaseY);
+                    doc.setFontSize(9);
+                }
+                currentY += rowHeight;
+            });
+
+            doc.setFillColor(240, 240, 245);
+            doc.rect(startX, currentY, 130, 6, 'FD'); 
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text("TOTAL PRÉSENTS", startX + 2, currentY + 4.2);
+            doc.text(totalF.toString(), startX + 32.5, currentY + 4.2, {align: "center"});
+            doc.text(totalG.toString(), startX + 45, currentY + 4.2, {align: "center"});
+            doc.text((totalF + totalG).toString(), startX + 57.5, currentY + 4.2, {align: "center"});
+
+            const tableBottomY = currentY + 6;
+
+            doc.setDrawColor(220, 220, 220);
+            doc.line(startX + 27, tableTopY, startX + 27, tableBottomY); 
+            doc.line(startX + 38, tableTopY, startX + 38, tableBottomY); 
+            doc.line(startX + 52, tableTopY, startX + 52, tableBottomY); 
+            doc.line(startX + 63, tableTopY, startX + 63, tableBottomY); 
+            
+            doc.setDrawColor(180, 180, 180);
+            doc.rect(startX, tableTopY, 130, tableBottomY - tableTopY, 'S');
+
+            if (totalAbs > 0) {
+                doc.setFont("helvetica", "italic");
+                doc.setFontSize(8);
+                doc.setTextColor(231, 76, 60);
+                doc.text(`* Non évalués / Absents : ${totalAbs} élève(s)`, startX + 128, tableBottomY + 5, {align: "right"});
+            }
+        };
+
+        drawStatBox("Score Global", "global", 15, 38);
+        drawStatBox("Compréhension de l'Oral (CO)", "co", 152, 38);
+        drawStatBox("Compréhension des Écrits (CE)", "ce", 15, 122);
+        drawStatBox("Grammaire & Lexique (GL)", "gl", 152, 122);
+        
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Document généré le ${new Date().toLocaleDateString('fr-FR')}`, 148.5, 205, { align: "center" });
+
+        // ==========================================
+        // PAGE(S) SUIVANTE(S) : TABLEAU NOMINATIF (PORTRAIT)
+        // ==========================================
+        const sortedData = [...data].sort((a, b) => a.nom.localeCompare(b.nom));
+        let tableY = 40;
+        const rowHeight = 6.5; 
+        
+        const drawDetailHeader = () => {
+            doc.addPage("a4", "portrait"); 
+            
+            if(appState.config.logo) {
+                try { doc.addImage(appState.config.logo, 'JPEG', 15, 10, 20, 0); } catch(e){}
+            }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.setTextColor(0, 0, 145);
+            doc.text("RÉSULTATS NOMINATIFS EV@LANG", 105, 20, { align: "center" });
+            
+            doc.setFontSize(12);
+            doc.setTextColor(50, 50, 50);
+            doc.text(`${schoolName} - ${scopeName}`, 105, 28, { align: "center" });
+            
+            doc.setDrawColor(200, 200, 200);
+            doc.line(15, 32, 195, 32);
+
+            doc.setFillColor(240, 240, 250);
+            doc.setDrawColor(150, 150, 150); 
+            doc.rect(15, 38, 180, 8, 'FD'); 
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            
+            doc.text("Nom", 17, 43.5);
+            doc.text("Prénom", 57, 43.5);
+            doc.text("Classe", 92.5, 43.5, { align: "center" });
+            doc.text("Niveau Global", 112.5, 43.5, { align: "center" });
+            doc.text("CO", 136.6, 43.5, { align: "center" });
+            doc.text("CE", 159.9, 43.5, { align: "center" });
+            doc.text("GL", 183.3, 43.5, { align: "center" });
+            
+            doc.line(55, 38, 55, 46);
+            doc.line(85, 38, 85, 46);
+            doc.line(100, 38, 100, 46);
+            doc.line(125, 38, 125, 46);
+            doc.line(148.3, 38, 148.3, 46);
+            doc.line(171.6, 38, 171.6, 46);
+            
+            tableY = 46; 
+        };
+
+        drawDetailHeader(); 
+
+        sortedData.forEach((student, index) => {
+            if (tableY > 280) {
+                drawDetailHeader();
+            }
+
+            doc.setDrawColor(150, 150, 150);
+            if (index % 2 === 0) {
+                doc.setFillColor(255, 255, 255); 
+            } else {
+                doc.setFillColor(249, 249, 249); 
+            }
+            doc.rect(15, tableY, 180, rowHeight, 'FD');
+
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(9);
+            doc.text(student.nom.substring(0, 20), 17, tableY + 4.5); 
+            
+            doc.setFont("helvetica", "normal");
+            doc.text(student.prenom.substring(0, 15), 57, tableY + 4.5);
+            doc.text(student.classe.substring(0, 5), 92.5, tableY + 4.5, { align: "center" });
+
+            // ----- BLOC DES SCORES (Application dynamique des couleurs) -----
+            doc.setFontSize(8.5);
+
+            // Niveau Global (Gras)
+            doc.setFont("helvetica", "bold");
+            let globText = student.global ? student.global.replace("Au-delà du B1", "Au-delà de B1") : "-";
+            const cGlob = getRGB(globText);
+            doc.setTextColor(cGlob[0], cGlob[1], cGlob[2]);
+            doc.text(globText, 112.5, tableY + 4.5, { align: "center" });
+
+            // Compétences détaillées (Gras pour la lisibilité)
+            let coText = student.co ? student.co.replace("Au-delà du B1", "Au-delà de B1") : "-";
+            const cCo = getRGB(coText);
+            doc.setTextColor(cCo[0], cCo[1], cCo[2]);
+            doc.text(coText, 136.6, tableY + 4.5, { align: "center" });
+            
+            let ceText = student.ce ? student.ce.replace("Au-delà du B1", "Au-delà de B1") : "-";
+            const cCe = getRGB(ceText);
+            doc.setTextColor(cCe[0], cCe[1], cCe[2]);
+            doc.text(ceText, 159.9, tableY + 4.5, { align: "center" });
+            
+            let glText = student.gl ? student.gl.replace("Au-delà du B1", "Au-delà de B1") : "-";
+            const cGl = getRGB(glText);
+            doc.setTextColor(cGl[0], cGl[1], cGl[2]);
+            doc.text(glText, 183.3, tableY + 4.5, { align: "center" });
+
+            doc.line(55, tableY, 55, tableY + rowHeight);
+            doc.line(85, tableY, 85, tableY + rowHeight);
+            doc.line(100, tableY, 100, tableY + rowHeight);
+            doc.line(125, tableY, 125, tableY + rowHeight);
+            doc.line(148.3, tableY, 148.3, tableY + rowHeight);
+            doc.line(171.6, tableY, 171.6, tableY + rowHeight);
+
+            tableY += rowHeight; 
+        });
+    });
+
+    const safeFilename = mode === 'current' ? `Resultats_Evlang_${document.getElementById('analysisScope').value}.pdf` : `Rapport_Complet_Evlang.pdf`;
+    doc.save(safeFilename.replace(/ /g, '_'));
+}
+
+
+// --- GÉNÉRATION DES COUPONS INDIVIDUELS (4 PAR PAGE) ---
+// POURQUOI : Optimisation écologique du papier et format pratique pour la distribution le jour J.
+function generateCouponsPDF(className, slotDate) {
+    const slot = appState.evlangCodes.find(s => s.date === slotDate);
+    
+    // Tri alphabétique pour faciliter la distribution en classe
+    const classStudents = appState.students
+        .filter(s => s.classe === className)
+        .sort((a, b) => a.nom.localeCompare(b.nom));
+
+    if(classStudents.length === 0) return alert("Aucun élève dans cette classe.");
+
+    // Dictionnaire simplifié pour les petits coupons
+    const testDescriptions = {
+        'NC': 'Standard',
+        'AC': 'Aménagement Auditif',
+        'NN': 'Tiers-temps',
+        'AN': 'Auditif + Tiers-temps',
+        'VN': 'Visuel + Tiers-temps'
+    };
+
+    // LOGIQUE MÉTIER : Formatage propre de la date du créneau pour l'affichage
+    let displayDate = slotDate;
+    const dateMatch = slotDate.match(/(\d{2})_(\d{2})_(\d{4})_(\d{2})h(\d{2})/);
+    if(dateMatch) {
+        displayDate = `Le ${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]} à ${dateMatch[4]}h${dateMatch[5]}`;
+    } else {
+        displayDate = slotDate.replace(/_/g, '/'); // Sécurité si le format est inattendu
+    }
+
+    const availableCodes = JSON.parse(JSON.stringify(slot.codes));
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF(); // Format A4 portrait par défaut
+    
+    let errorMsg = null;
+    const couponsPerPage = 4;
+    const pageHeight = 297; 
+    const couponHeight = pageHeight / couponsPerPage; // ~74.25 mm par coupon
+
+    classStudents.forEach((student, index) => {
+        const typeNeeded = student.testType;
+        const assignedCode = availableCodes[typeNeeded].pop();
+
+        if(!assignedCode) {
+            errorMsg = `ERREUR : Codes de type "${typeNeeded}" épuisés pour la classe ${className} (Manque pour : ${student.nom} ${student.prenom}).`;
+            return; 
+        }
+
+        const positionOnPage = index % couponsPerPage;
+        
+        // Saut de page tous les 4 élèves
+        if (index > 0 && positionOnPage === 0) {
+            doc.addPage();
+        }
+
+        const startY = positionOnPage * couponHeight;
+
+        // 1. Tracer la ligne de découpe (pointillés) en haut du coupon (sauf tout en haut de la page)
+        if (positionOnPage > 0) {
+            doc.setDrawColor(180, 180, 180);
+            doc.setLineDashPattern([3, 3], 0);
+            doc.line(10, startY, 200, startY);
+            doc.setLineDashPattern([], 0); // Réinitialisation du trait
+        }
+
+        // 2. Contenu du coupon
+        let currentY = startY + 12; // Légèrement remonté pour faire de la place
+
+        // En-tête
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 145);
+        doc.text("COUPON DE CONNEXION EV@LANG", 105, currentY, { align: "center" });
+        
+        // Infos Élève
+        currentY += 8;
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Élève : ${student.nom} ${student.prenom}`, 105, currentY, { align: "center" });
+        
+        currentY += 6;
+        doc.setFont("helvetica", "normal");
+        doc.text(`Classe : ${student.classe}`, 105, currentY, { align: "center" });
+
+        // NOUVEAU BLOC : Affichage de la date et de l'heure du créneau
+        currentY += 6;
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(50, 50, 50); // Gris foncé pour hiérarchiser l'info
+        doc.text(`Créneau : ${displayDate}`, 105, currentY, { align: "center" });
+        doc.setTextColor(0, 0, 0); // Réinitialisation de la couleur
+
+        // Mention aménagement si différent de "NC" (Standard)
+        if (student.testType !== 'NC') {
+            currentY += 6;
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(10);
+            doc.setTextColor(231, 76, 60); // Rouge discret pour attirer l'attention du surveillant
+            doc.text(`Profil de test : ${testDescriptions[student.testType]}`, 105, currentY, { align: "center" });
+            doc.setTextColor(0, 0, 0);
+        } else {
+            currentY += 6; // Maintien de l'espacement pour l'alignement
+        }
+
+        // URL de la plateforme
+        currentY += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.text("Plateforme :", 65, currentY);
+        doc.setFont("helvetica", "bold");
+        doc.text("https://test.evalangcollege.fr/", 90, currentY);
+
+        // Encadré du Code de connexion
+        currentY += 4;
+        doc.setDrawColor(0, 0, 145);
+        doc.setFillColor(243, 243, 255);
+        doc.rect(65, currentY, 80, 14, 'FD'); // Boîte centrée
+        
+        doc.setFontSize(16);
+        doc.setTextColor(0, 0, 145);
+        // Ajustement Y pour centrer le texte dans la boîte (+9mm)
+        doc.text(`CODE : ${assignedCode}`, 105, currentY + 9, { align: "center" }); 
+    });
+
+    if(errorMsg) {
+        alert(errorMsg);
+    } else {
+        doc.save(`Coupons_Evlang_${className}.pdf`);
+    }
+}
+
+   </script>
+</body>
+</html>
