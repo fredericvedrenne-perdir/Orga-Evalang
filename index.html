@@ -793,7 +793,7 @@ function generatePDF(className, slotDate, includeCodes = true) {
         alert(errorMsg);
     } else {
         const suffix = includeCodes ? "" : "_SANS_CODES";
-        doc.save(`Convocations_Evlang_${className}${suffix}.pdf`);
+        doc.save(`Convocations_Evalang_${className}${suffix}.pdf`);
     }
 }
 		
@@ -1122,7 +1122,7 @@ function generateSummaryPDF(className, slotDate) {
     if(errorMsg) {
         alert(errorMsg);
     } else {
-        doc.save(`Liste_Codes_Evlang_${className}.pdf`);
+        doc.save(`Liste_Codes_Evalang_${className}.pdf`);
     }
 }
 
@@ -1310,7 +1310,7 @@ function renderAnalysisDashboard() {
 
         html += `
                 <tr style="background-color: var(--table-header); font-weight: bold;">
-                    <td style="text-align: left; padding: 12px;">TOTAL PRÉSENTS</td>
+                    <td style="text-align: left; padding: 12px;">TOTAL</td>
                     <td style="color: #d35400;">${totalF}</td>
                     <td style="color: #2980b9;">${totalG}</td>
                     <td style="background: #e3e3fd; font-size: 1.1em;">${totalF + totalG}</td>
@@ -1534,7 +1534,7 @@ function exportStatsPDF(mode) {
             doc.rect(startX, currentY, 130, 6, 'FD'); 
             doc.setFont("helvetica", "bold");
             doc.setTextColor(0, 0, 0);
-            doc.text("TOTAL PRÉSENTS", startX + 2, currentY + 4.2);
+            doc.text("TOTAL", startX + 2, currentY + 4.2);
             doc.text(totalF.toString(), startX + 32.5, currentY + 4.2, {align: "center"});
             doc.text(totalG.toString(), startX + 45, currentY + 4.2, {align: "center"});
             doc.text((totalF + totalG).toString(), startX + 57.5, currentY + 4.2, {align: "center"});
@@ -1680,7 +1680,7 @@ function exportStatsPDF(mode) {
         });
     });
 
-    const safeFilename = mode === 'current' ? `Resultats_Evlang_${document.getElementById('analysisScope').value}.pdf` : `Rapport_Complet_Evlang.pdf`;
+    const safeFilename = mode === 'current' ? `Resultats_Evalang_${document.getElementById('analysisScope').value}.pdf` : `Rapport_Complet_Evalang.pdf`;
     doc.save(safeFilename.replace(/ /g, '_'));
 }
 
@@ -1811,7 +1811,7 @@ function generateCouponsPDF(className, slotDate) {
     if(errorMsg) {
         alert(errorMsg);
     } else {
-        doc.save(`Coupons_Evlang_${className}.pdf`);
+        doc.save(`Coupons_Evalang_${className}.pdf`);
     }
 }
 
